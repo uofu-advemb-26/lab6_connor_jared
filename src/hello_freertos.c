@@ -43,17 +43,17 @@ void low_task(__unused void *params) {
 }
 
 void med_task(__unused void *params) {
+    vTaskSuspend(NULL);
 }
 
 void high_task(__unused void *params) {
-    vTaskDelay((TickType_t)500U);
+    vTaskDelay((TickType_t)(500U / portTICK_PERIOD_MS));
     while(1) {
-        if(uxSemaphoreGetCount(sem)) {
+        if(xSemaphoreTake(sem, pdMS_TO_TICKS(1000)) == pdTRUE) {
             printf("HIGH task took semaphore");
             xSemaphoreGive(sem);
         }
         else { printf("HIGH task blocked by semaphore"); }
-    vTaskDelay((TickType_t)(50U));
     }
 }
 
@@ -66,6 +66,7 @@ void main_task(__unused void *params) {
                 BLINK_TASK_STACK_SIZE, NULL, MED_TASK_PRIORITY, NULL);
     xTaskCreate(high_task, "BlinkThread",
                 BLINK_TASK_STACK_SIZE, NULL, HIGH_TASK_PRIORITY, NULL);
+    vTaskSuspend(NULL);
 }
 
 int main( void )
