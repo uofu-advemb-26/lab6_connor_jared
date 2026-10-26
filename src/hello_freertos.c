@@ -38,7 +38,7 @@ void blink_task(__unused void *params) {
 
 void low_task(__unused void *params) {
     xSemaphoreTake(sem, portMAX_DELAY);
-    printf("LOW task took semaphore");
+    printf("LOW task took semaphore\n");
     vTaskSuspend(NULL);    
 }
 
@@ -50,10 +50,10 @@ void high_task(__unused void *params) {
     vTaskDelay((TickType_t)(500U / portTICK_PERIOD_MS));
     while(1) {
         if(xSemaphoreTake(sem, pdMS_TO_TICKS(1000)) == pdTRUE) {
-            printf("HIGH task took semaphore");
+            printf("HIGH task took semaphore\n");
             xSemaphoreGive(sem);
         }
-        else { printf("HIGH task blocked by semaphore"); }
+        else { printf("HIGH task blocked by semaphore\n"); }
     }
 }
 
