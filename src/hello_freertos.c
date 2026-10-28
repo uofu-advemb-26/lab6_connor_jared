@@ -19,10 +19,10 @@ bool on = false;
 xSemaphoreHandle sem;
 
 #define MAIN_TASK_PRIORITY      ( tskIDLE_PRIORITY + 5UL )
-#define BLINK_TASK_PRIORITY     ( tskIDLE_PRIORITY + 1UL )
+#define HIGH_TASK_PRIORITY      ( tskIDLE_PRIORITY + 4UL )
 #define MED_TASK_PRIORITY       ( tskIDLE_PRIORITY + 3UL )
 #define LOW_TASK_PRIORITY       ( tskIDLE_PRIORITY + 2UL )
-#define HIGH_TASK_PRIORITY      ( tskIDLE_PRIORITY + 4UL )
+#define BLINK_TASK_PRIORITY     ( tskIDLE_PRIORITY + 1UL )
 
 #define MAIN_TASK_STACK_SIZE configMINIMAL_STACK_SIZE
 #define BLINK_TASK_STACK_SIZE configMINIMAL_STACK_SIZE
@@ -39,32 +39,39 @@ void blink_task(__unused void *params) {
 void low_task(__unused void *params) {
     xSemaphoreTake(sem, portMAX_DELAY);
     printf("LOW task took semaphore\n");
+    for (volatile int i = 0; i < 10000000; i++);
+    printf("LOW task giving semaphore\n");
+    xSemaphoreGive(sem);
     vTaskSuspend(NULL);    
 }
 
 void med_task(__unused void *params) {
-    vTaskSuspend(NULL);
+    vTaskDelay(pdMS_TO_TICKS(20));
+    printf("MED task is controlling CPU\n");
+    while(1);
 }
 
 void high_task(__unused void *params) {
-    vTaskDelay((TickType_t)(500U / portTICK_PERIOD_MS));
+    vTaskDelay(pdMS_TO_TICKS(50));
     while(1) {
         if(xSemaphoreTake(sem, pdMS_TO_TICKS(1000)) == pdTRUE) {
             printf("HIGH task took semaphore\n");
             xSemaphoreGive(sem);
+            vTaskDelay(pdMS_TO_TICKS(1000));
         }
         else { printf("HIGH task blocked by semaphore\n"); }
     }
 }
 
 void main_task(__unused void *params) {
+    vTaskDelay(pdMS_TO_TICKS(5000));
     xTaskCreate(blink_task, "BlinkThread",
                 BLINK_TASK_STACK_SIZE, NULL, BLINK_TASK_PRIORITY, NULL);
-    xTaskCreate(low_task, "BlinkThread",
+    xTaskCreate(low_task, "LowThread",
                 BLINK_TASK_STACK_SIZE, NULL, LOW_TASK_PRIORITY, NULL);
-    xTaskCreate(med_task, "BlinkThread",
+    xTaskCreate(med_task, "MedThread",
                 BLINK_TASK_STACK_SIZE, NULL, MED_TASK_PRIORITY, NULL);
-    xTaskCreate(high_task, "BlinkThread",
+    xTaskCreate(high_task, "HighThread",
                 BLINK_TASK_STACK_SIZE, NULL, HIGH_TASK_PRIORITY, NULL);
     vTaskSuspend(NULL);
 }
@@ -75,6 +82,7 @@ int main( void )
     const char *rtos_name;
     rtos_name = "FreeRTOS";
     sem = xSemaphoreCreateBinary();
+    xSemaphoreGive(sem);
     TaskHandle_t task;
     xTaskCreate(main_task, "MainThread",
                 MAIN_TASK_STACK_SIZE, NULL, MAIN_TASK_PRIORITY, &task);   
