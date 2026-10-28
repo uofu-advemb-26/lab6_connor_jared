@@ -18,13 +18,14 @@ int count = 0;
 bool on = false;
 xSemaphoreHandle sem;
 
-#define MAIN_TASK_PRIORITY      ( tskIDLE_PRIORITY + 5UL )
+
+#define SUPERVISOR_TASK_PRIORITY      ( tskIDLE_PRIORITY + 5UL )
 #define HIGH_TASK_PRIORITY      ( tskIDLE_PRIORITY + 4UL )
 #define MED_TASK_PRIORITY       ( tskIDLE_PRIORITY + 3UL )
 #define LOW_TASK_PRIORITY       ( tskIDLE_PRIORITY + 2UL )
 #define BLINK_TASK_PRIORITY     ( tskIDLE_PRIORITY + 1UL )
 
-#define MAIN_TASK_STACK_SIZE configMINIMAL_STACK_SIZE
+#define SUPERVISOR_TASK_STACK_SIZE configMINIMAL_STACK_SIZE
 #define BLINK_TASK_STACK_SIZE configMINIMAL_STACK_SIZE
 
 void blink_task(__unused void *params) {
@@ -63,8 +64,20 @@ void high_task(__unused void *params) {
     }
 }
 
-void main_task(__unused void *params) {
-    vTaskDelay(pdMS_TO_TICKS(5000));
+void busy_busy(void)
+{
+    for (int i = 0; ; i++);
+}
+
+void busy_yield(void)
+{
+    for (int i = 0; ; i++) {
+        taskYIELD();
+    }
+}
+
+void supervisor_task(__unused void *params) {
+    vTaskDelay(pdMS_TO_TICKS(7000));
     xTaskCreate(blink_task, "BlinkThread",
                 BLINK_TASK_STACK_SIZE, NULL, BLINK_TASK_PRIORITY, NULL);
     xTaskCreate(low_task, "LowThread",
@@ -82,10 +95,11 @@ int main( void )
     const char *rtos_name;
     rtos_name = "FreeRTOS";
     sem = xSemaphoreCreateBinary();
+    //sem = xSemaphoreCreateMutex();
     xSemaphoreGive(sem);
     TaskHandle_t task;
-    xTaskCreate(main_task, "MainThread",
-                MAIN_TASK_STACK_SIZE, NULL, MAIN_TASK_PRIORITY, &task);   
+    xTaskCreate(supervisor_task, "SupervisorThread",
+                SUPERVISOR_TASK_STACK_SIZE, NULL, SUPERVISOR_TASK_PRIORITY, &task);   
     vTaskStartScheduler();
     return 0;
 }
