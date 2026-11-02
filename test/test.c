@@ -13,6 +13,9 @@
 #define RUN_MS          1000
 #define RUN_US          ( RUN_MS * 1000 )
 #define TOLERANCE_US    50000
+
+#define MS_TO_US(ms) (ms*1000)
+
 static TaskHandle_t thread1, thread2;
 
 void setUp(void) {}
@@ -54,7 +57,6 @@ void test_same_priority_busy_busy(void)
 
     TEST_ASSERT_UINT32_WITHIN(TOLERANCE_US, RUN_US / 2, runtime1);
     TEST_ASSERT_UINT32_WITHIN(TOLERANCE_US, RUN_US / 2, runtime2);
-
 }
 
 void test_same_priority_busy_yield(void)
@@ -65,7 +67,6 @@ void test_same_priority_busy_yield(void)
 
     TEST_ASSERT_UINT32_WITHIN(TOLERANCE_US, RUN_US / 2, runtime1);
     TEST_ASSERT_UINT32_WITHIN(TOLERANCE_US, RUN_US / 2, runtime2);
-
 }
 
 void test_same_priority_busy_busy_and_yield(void)
@@ -76,22 +77,36 @@ void test_same_priority_busy_busy_and_yield(void)
 
     TEST_ASSERT_UINT32_WITHIN(TOLERANCE_US, RUN_US, busy_runtime_us);
     TEST_ASSERT_UINT32_WITHIN(TOLERANCE_US, 0, yield_runtime_us);
-
 }
 
 void test_high_priority_busy_busy(void)
 {
+    uint32_t runtime1, runtime2;
+    threads_setUp(busy_busy, HIGH_PRIORITY, busy_busy, LOW_PRIORITY, 100);
+    threads_tearDown(&runtime1, &runtime2);
 
+    TEST_ASSERT_UINT32_WITHIN(TOLERANCE_US, RUN_US, runtime1);
+    TEST_ASSERT_UINT32_WITHIN(TOLERANCE_US, 0, runtime2);
 }
 
 void test_low_priority_busy_busy(void)
 {
+    uint32_t runtime1, runtime2;
+    threads_setUp(busy_busy, LOW_PRIORITY, busy_busy, HIGH_PRIORITY, 200);
+    threads_tearDown(&runtime1, &runtime2);
 
+    TEST_ASSERT_UINT32_WITHIN(TOLERANCE_US, MS_TO_US(200), runtime1);
+    TEST_ASSERT_UINT32_WITHIN(TOLERANCE_US, RUN_US - MS_TO_US(200), runtime2);
 }
 
 void test_both_priority_busy_yield(void)
 {
+    uint32_t yield_runtime1, yield_runtime2;
+    threads_setUp(busy_yield, HIGH_PRIORITY, busy_yield, LOW_PRIORITY, 0);
+    threads_tearDown(&yield_runtime1, &yield_runtime2);
 
+    TEST_ASSERT_UINT32_WITHIN(TOLERANCE_US, RUN_US, yield_runtime1);
+    TEST_ASSERT_UINT32_WITHIN(TOLERANCE_US, 0, yield_runtime2);
 }
 
 
@@ -104,9 +119,9 @@ void supervisor_task(__unused void *params)
         RUN_TEST(test_same_priority_busy_busy);
         RUN_TEST(test_same_priority_busy_yield);
         RUN_TEST(test_same_priority_busy_busy_and_yield);
-        //RUN_TEST(test_high_priority_busy_busy);
-        //RUN_TEST(test_low_priority_busy_busy);
-        //RUN_TEST(test_both_priority_busy_yield);
+        RUN_TEST(test_high_priority_busy_busy);
+        RUN_TEST(test_low_priority_busy_busy);
+        RUN_TEST(test_both_priority_busy_yield);
         UNITY_END();
     }
 }
