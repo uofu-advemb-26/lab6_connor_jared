@@ -64,17 +64,6 @@ void high_task(__unused void *params) {
     }
 }
 
-void busy_busy(void)
-{
-    for (int i = 0; ; i++);
-}
-
-void busy_yield(void)
-{
-    for (int i = 0; ; i++) {
-        taskYIELD();
-    }
-}
 
 void supervisor_task(__unused void *params) {
     vTaskDelay(pdMS_TO_TICKS(7000));
