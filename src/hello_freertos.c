@@ -8,6 +8,7 @@
 
 #include "FreeRTOS.h"
 #include "task.h"
+#include "semphr.h"
 
 #include "pico/stdlib.h"
 #include "pico/multicore.h"
@@ -15,10 +16,16 @@
 
 int count = 0;
 bool on = false;
+xSemaphoreHandle sem;
 
-#define MAIN_TASK_PRIORITY      ( tskIDLE_PRIORITY + 1UL )
-#define BLINK_TASK_PRIORITY     ( tskIDLE_PRIORITY + 2UL )
-#define MAIN_TASK_STACK_SIZE configMINIMAL_STACK_SIZE
+
+#define SUPERVISOR_TASK_PRIORITY      ( tskIDLE_PRIORITY + 5UL )
+#define HIGH_TASK_PRIORITY      ( tskIDLE_PRIORITY + 4UL )
+#define MED_TASK_PRIORITY       ( tskIDLE_PRIORITY + 3UL )
+#define LOW_TASK_PRIORITY       ( tskIDLE_PRIORITY + 2UL )
+#define BLINK_TASK_PRIORITY     ( tskIDLE_PRIORITY + 1UL )
+
+#define SUPERVISOR_TASK_STACK_SIZE configMINIMAL_STACK_SIZE
 #define BLINK_TASK_STACK_SIZE configMINIMAL_STACK_SIZE
 
 void blink_task(__unused void *params) {
@@ -30,15 +37,45 @@ void blink_task(__unused void *params) {
     }
 }
 
-void main_task(__unused void *params) {
+void low_task(__unused void *params) {
+    xSemaphoreTake(sem, portMAX_DELAY);
+    printf("LOW task took semaphore\n");
+    for (volatile int i = 0; i < 10000000; i++);
+    printf("LOW task giving semaphore\n");
+    xSemaphoreGive(sem);
+    vTaskSuspend(NULL);    
+}
+
+void med_task(__unused void *params) {
+    vTaskDelay(pdMS_TO_TICKS(20));
+    printf("MED task is controlling CPU\n");
+    while(1);
+}
+
+void high_task(__unused void *params) {
+    vTaskDelay(pdMS_TO_TICKS(50));
+    while(1) {
+        if(xSemaphoreTake(sem, pdMS_TO_TICKS(1000)) == pdTRUE) {
+            printf("HIGH task took semaphore\n");
+            xSemaphoreGive(sem);
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        }
+        else { printf("HIGH task blocked by semaphore\n"); }
+    }
+}
+
+
+void supervisor_task(__unused void *params) {
+    vTaskDelay(pdMS_TO_TICKS(7000));
     xTaskCreate(blink_task, "BlinkThread",
                 BLINK_TASK_STACK_SIZE, NULL, BLINK_TASK_PRIORITY, NULL);
-    char c;
-    while(c = getchar()) {
-        if (c <= 'z' && c >= 'a') putchar(c - 32);
-        else if (c >= 'A' && c <= 'Z') putchar(c + 32);
-        else putchar(c);
-    }
+    xTaskCreate(low_task, "LowThread",
+                BLINK_TASK_STACK_SIZE, NULL, LOW_TASK_PRIORITY, NULL);
+    xTaskCreate(med_task, "MedThread",
+                BLINK_TASK_STACK_SIZE, NULL, MED_TASK_PRIORITY, NULL);
+    xTaskCreate(high_task, "HighThread",
+                BLINK_TASK_STACK_SIZE, NULL, HIGH_TASK_PRIORITY, NULL);
+    vTaskSuspend(NULL);
 }
 
 int main( void )
@@ -46,9 +83,12 @@ int main( void )
     stdio_init_all();
     const char *rtos_name;
     rtos_name = "FreeRTOS";
+    sem = xSemaphoreCreateBinary();
+    //sem = xSemaphoreCreateMutex();
+    xSemaphoreGive(sem);
     TaskHandle_t task;
-    xTaskCreate(main_task, "MainThread",
-                MAIN_TASK_STACK_SIZE, NULL, MAIN_TASK_PRIORITY, &task);
+    xTaskCreate(supervisor_task, "SupervisorThread",
+                SUPERVISOR_TASK_STACK_SIZE, NULL, SUPERVISOR_TASK_PRIORITY, &task);   
     vTaskStartScheduler();
     return 0;
 }
